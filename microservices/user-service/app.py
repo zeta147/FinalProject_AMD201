@@ -55,6 +55,10 @@ async def login(form_data : LoginModel = Body(...)):
 )
 async def create_user(user: UserModel = Body(...)):
     inserted_user = user.model_dump(by_alias=True, exclude={"id"})
+    inserted_email = inserted_user["email"]
+    user_dict = await user_collection.find_one({"email": inserted_email})
+    if user_dict:
+        raise HTTPException(status_code=403, detail="Email already registered")
     inserted_user["password"] = get_password_hash(inserted_user["password"])
     new_user = await user_collection.insert_one(
         inserted_user
