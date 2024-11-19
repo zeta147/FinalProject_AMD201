@@ -15,6 +15,8 @@ class WasteItemModel(BaseModel):
     name: str = Field(...)
     category: str = Field(...)
     sorting_instructions: str = Field(...)
+    created_by_username: str = Field(...)
+    created_by_email: EmailStr = Field(...)
     model_config = ConfigDict(
         populate_by_name=True,
         arbitrary_types_allowed=True,
@@ -23,15 +25,19 @@ class WasteItemModel(BaseModel):
                 "name": "Expired Food",
                 "category": "Food Waste",
                 "sorting_instructions": "dawdawda",
+                "created_by_username": "Jane Doe",
+                "created_by_email": "jdoe@example.com",
             }
         },
     )
 
 
 class UpdateWasteItemModel(BaseModel):
-    name: str = Field(...)
-    category: str = Field(...)
-    sorting_instructions: str = Field(...)
+    name: Optional[str] = None
+    category: Optional[str] = None
+    sorting_instructions: Optional[str] = None
+    created_by_username: Optional[str] = None
+    created_by_email: Optional[EmailStr] = None
     model_config = ConfigDict(
         arbitrary_types_allowed=True,
         json_encoders={ObjectId: str},
@@ -40,6 +46,8 @@ class UpdateWasteItemModel(BaseModel):
                 "name": "Expired Food",
                 "category": "Food Waste",
                 "sorting_instructions": "dawdadwada",
+                "created_by_username": "Jane Doe",
+                "created_by_email": "jdoe@example.com",
             }
         },
     )

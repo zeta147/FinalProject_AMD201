@@ -1,5 +1,3 @@
-import os
-
 from fastapi import FastAPI, Body, HTTPException, status
 from fastapi.responses import Response
 
@@ -28,8 +26,10 @@ waste_item_collection = db.get_collection("WasteItems")
     response_model_by_alias=False,
 )
 async def create_waste_item(waste_item: WasteItemModel = Body(...)):
+    inserted_item = waste_item.model_dump(by_alias=True, exclude={"id"})
+    inserted_item["category"] = inserted_item["category"].lower()
     new_waste_item = await waste_item_collection.insert_one(
-        waste_item.model_dump(by_alias=True, exclude=["id"])
+        inserted_item
     )
     created_waste_item = await waste_item_collection.find_one(
         {"_id": new_waste_item.inserted_id}
@@ -72,6 +72,8 @@ async def update_waste_item(id: str, waste_item: UpdateWasteItemModel = Body(...
     waste_item = {
         key: value for key, value in waste_item.model_dump(by_alias=True).items() if value is not None
     }
+    if("category" in waste_item):
+        waste_item["category"] = waste_item["category"].lower()
 
     if len(waste_item) >= 1:
         update_result = await waste_item_collection.find_one_and_update(

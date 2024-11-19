@@ -1,5 +1,3 @@
-import os
-
 from fastapi import FastAPI, Body, HTTPException, status
 from fastapi.responses import Response
 
@@ -7,7 +5,7 @@ from bson import ObjectId
 import motor.motor_asyncio
 from pymongo import ReturnDocument
 
-from model import WasteCategoryModel, WasteCategoryCollection, UpdateWasteCategoryModel
+from model import WasteCategoryModel, WasteCategoryCollection, UpdateWasteCategoryModel, WasteItemModel, WasteItemCollection
 
 
 app = FastAPI(
@@ -18,6 +16,7 @@ MONGO_URL = "mongodb+srv://vipham0938606944:mongodb1472004!@microservice-databas
 client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_URL)
 db = client["sorting-waste-app"]
 waste_category_collection = db.get_collection("WasteCategories")
+waste_item_collection = db.get_collection("WasteItems")
 
 
 @app.post(
@@ -28,8 +27,10 @@ waste_category_collection = db.get_collection("WasteCategories")
     response_model_by_alias=False,
 )
 async def create_category(waste_category: WasteCategoryModel = Body(...)):
+    inserted_category = waste_category.model_dump(by_alias=True, exclude={"id"})
+    inserted_category["category"] = inserted_category["category"].lower()
     new_category = await waste_category_collection.insert_one(
-        waste_category.model_dump(by_alias=True, exclude=["id"])
+        inserted_category
     )
     created_waste_category = await waste_category_collection.find_one(
         {"_id": new_category.inserted_id}
@@ -61,6 +62,21 @@ async def show_category(id: str):
     raise HTTPException(status_code=404, detail=f"Waste category {id} not found")
 
 
+@app.get(
+    "/waste_categories/{id}/items",
+    response_description="Get a single category",
+    response_model=WasteItemCollection,
+    response_model_by_alias=False,
+)
+async def show_category(id: str):
+    waste_category = await waste_category_collection.find_one({"_id": ObjectId(id)})
+
+    if(len(waste_category) > 0):
+        return WasteItemCollection(waste_items = await waste_item_collection.find({"category": waste_category["category"].lower()}).to_list(1000))
+
+    raise HTTPException(status_code=404, detail=f"Waste category {id} not found")
+
+
 @app.put(
     "/waste_categories/{id}",
     response_description="Update a waste category",
@@ -71,6 +87,9 @@ async def update_category(id: str, waste_category: UpdateWasteCategoryModel = Bo
     waste_category = {
         key: value for key, value in waste_category.model_dump(by_alias=True).items() if value is not None
     }
+
+    if("category" in waste_category):
+        waste_category["category"] = waste_category["category"].lower()
 
     if len(waste_category) >= 1:
         update_result = await waste_category_collection.find_one_and_update(

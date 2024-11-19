@@ -29,9 +29,9 @@ class WasteCategoryModel(BaseModel):
 
 
 class UpdateWasteCategoryModel(BaseModel):
-    category: str = Field(...)
-    description: str = Field(...)
-    disposal_guidelines: str = Field(...)
+    category: Optional[str] = None
+    description: Optional[str] = None
+    disposal_guidelines: Optional[str] = None
     model_config = ConfigDict(
         arbitrary_types_allowed=True,
         json_encoders={ObjectId: str},
@@ -48,3 +48,28 @@ class UpdateWasteCategoryModel(BaseModel):
 class WasteCategoryCollection(BaseModel):
     waste_categories: List[WasteCategoryModel]
 
+
+
+class WasteItemModel(BaseModel):
+    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    name: str = Field(...)
+    category: str = Field(...)
+    sorting_instructions: str = Field(...)
+    created_by_username: str = Field(...)
+    created_by_email: EmailStr = Field(...)
+    model_config = ConfigDict(
+        populate_by_name=True,
+        arbitrary_types_allowed=True,
+        json_schema_extra={
+            "example": {
+                "name": "Expired Food",
+                "category": "Food Waste",
+                "sorting_instructions": "dawdawda",
+                "created_by_username": "Jane Doe",
+                "created_by_email": "jdoe@example.com",
+            }
+        },
+    )
+
+class WasteItemCollection(BaseModel):
+    waste_items: List[WasteItemModel]

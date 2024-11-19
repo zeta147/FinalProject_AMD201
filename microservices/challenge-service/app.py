@@ -1,5 +1,3 @@
-import os
-
 from fastapi import FastAPI, Body, HTTPException, status
 from fastapi.responses import Response
 
@@ -7,7 +5,7 @@ from bson import ObjectId
 import motor.motor_asyncio
 from pymongo import ReturnDocument
 
-from model import ChallengeModel, ChallengeCollection, UpdateChallengeModel
+from model import ChallengeModel, ChallengeCollection, UpdateChallengeModel, UserModel, UserCollection
 
 
 app = FastAPI(
@@ -18,6 +16,8 @@ MONGO_URL = "mongodb+srv://vipham0938606944:mongodb1472004!@microservice-databas
 client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_URL)
 db = client["sorting-waste-app"]
 challenge_collection = db.get_collection("Challenges")
+user_collection = db.get_collection("Users")
+
 
 @app.post(
     "/challenges/",
@@ -27,13 +27,11 @@ challenge_collection = db.get_collection("Challenges")
     response_model_by_alias=False,
 )
 async def create_challenge(challenge: ChallengeModel = Body(...)):
-    """
-    Insert a new challenge record.
+    inserted_challenge = challenge.model_dump(by_alias=True, exclude={"id"})
+    inserted_challenge["category"] = inserted_challenge["category"].lower()
 
-    A unique `id` will be created and provided in the response.
-    """
     new_challenge = await challenge_collection.insert_one(
-        challenge.model_dump(by_alias=True, exclude=["id"])
+        inserted_challenge
     )
     created_challenge = await challenge_collection.find_one(
         {"_id": new_challenge.inserted_id}
@@ -48,13 +46,7 @@ async def create_challenge(challenge: ChallengeModel = Body(...)):
     response_model_by_alias=False,
 )
 async def list_challenges():
-    """
-    List all of the challenge data in the database.
-
-    The response is unpaginated and limited to 1000 results.
-    """
     return ChallengeCollection(challenges=await challenge_collection.find().to_list(1000))
-
 
 @app.get(
     "/challenges/{id}",
@@ -63,15 +55,29 @@ async def list_challenges():
     response_model_by_alias=False,
 )
 async def show_challenge(id: str):
-    """
-    Get the record for a specific challenge, looked up by `id`.
-    """
     if (
         challenge := await challenge_collection.find_one({"_id": ObjectId(id)})
     ) is not None:
         return challenge
 
     raise HTTPException(status_code=404, detail=f"Challenge {id} not found")
+
+
+# Version 1
+@app.get(
+    "/challenges/{id}/users",
+    response_description="Get a single challenge",
+    response_model=UserCollection,
+    response_model_by_alias=False,
+)
+async def show_challenge(id: str):
+    challenge = await challenge_collection.find_one({"_id": ObjectId(id)})
+    if(challenge):
+        return UserCollection(users = await user_collection.find({"challenge": challenge["category"]}).to_list(1000))
+
+    raise HTTPException(status_code=404, detail=f"Challenge {id} not found")
+
+
 
 
 @app.put(
@@ -81,15 +87,12 @@ async def show_challenge(id: str):
     response_model_by_alias=False,
 )
 async def update_challenge(id: str, challenge: UpdateChallengeModel = Body(...)):
-    """
-    Update individual fields of an existing challenge record.
-
-    Only the provided fields will be updated.
-    Any missing or `null` fields will be ignored.
-    """
     challenge = {
         key: value for key, value in challenge.model_dump(by_alias=True).items() if value is not None
     }
+
+    if("category" in challenge):
+        challenge["category"] = challenge["category"].lower()
 
     if len(challenge) >= 1:
         update_result = await challenge_collection.find_one_and_update(
@@ -111,9 +114,6 @@ async def update_challenge(id: str, challenge: UpdateChallengeModel = Body(...))
 
 @app.delete("/challenges/{id}", response_description="Delete a challenge")
 async def delete_challenge(id: str):
-    """
-    Remove a single challenge record from the database.
-    """
     delete_result = await challenge_collection.delete_one({"_id": ObjectId(id)})
 
     if delete_result.deleted_count == 1:

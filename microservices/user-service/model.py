@@ -13,10 +13,11 @@ PyObjectId = Annotated[str, BeforeValidator(str)]
 class UserModel(BaseModel):
     id: Optional[PyObjectId] = Field(alias="_id", default=None)
     name: str = Field(...)
-    age: int = Field(..., le=100)
+    age: int = Field(None, le=100, description="Age of the user (only accept maximum 100)")
     email: EmailStr = Field(...)
     password: str = Field(...)
-    course: str = Field(...)
+    course: str = Field(None)
+    challenge: str = Field(None, description="category of the challenge")
     model_config = ConfigDict(
         populate_by_name=True,
         arbitrary_types_allowed=True,
@@ -25,8 +26,9 @@ class UserModel(BaseModel):
                 "name": "Jane Doe",
                 "age": "18",
                 "email": "jdoe@example.com",
-                "password": "YOURPASSWORD",
+                "password": "123456",
                 "course": "Experiments, Science, and Fashion in Nanophotonics",
+                "challenge": "food waste",
             }
         },
     )
@@ -38,6 +40,7 @@ class UpdateUserModel(BaseModel):
     email: Optional[EmailStr] = None
     password: Optional[str] = None
     course: Optional[str] = None
+    challenge: Optional[str] = None
     model_config = ConfigDict(
         arbitrary_types_allowed=True,
         json_encoders={ObjectId: str},
@@ -46,8 +49,9 @@ class UpdateUserModel(BaseModel):
                 "name": "Jane Doe",
                 "age": "18",
                 "email": "jdoe@example.com",
-                "password": "YOUR PASSWORD",
+                "password": "123456",
                 "course": "Experiments, Science, and Fashion in Nanophotonics",
+                "challenge": "food waste",
             }
         },
     )
@@ -71,3 +75,27 @@ class LoginModel(BaseModel):
         },
     )
 
+
+class WasteItemModel(BaseModel):
+    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    name: str = Field(...)
+    category: str = Field(...)
+    sorting_instructions: str = Field(...)
+    created_by_username: str = Field(...)
+    created_by_email: EmailStr = Field(...)
+    model_config = ConfigDict(
+        populate_by_name=True,
+        arbitrary_types_allowed=True,
+        json_schema_extra={
+            "example": {
+                "name": "Expired Food",
+                "category": "Food Waste",
+                "sorting_instructions": "dawdawda",
+                "created_by_username": "Jane Doe",
+                "created_by_email": "jdoe@example.com",
+            }
+        },
+    )
+
+class WasteItemCollection(BaseModel):
+    waste_items: List[WasteItemModel]

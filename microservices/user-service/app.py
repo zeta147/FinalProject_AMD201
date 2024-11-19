@@ -1,3 +1,5 @@
+from tabnanny import check
+
 from passlib.context import CryptContext
 
 from fastapi import FastAPI, Body, HTTPException, status
@@ -7,7 +9,7 @@ from bson import ObjectId
 import motor.motor_asyncio
 from pymongo import ReturnDocument
 
-from model import UserModel, UserCollection, UpdateUserModel, LoginModel
+from model import UserModel, UserCollection, UpdateUserModel, LoginModel, WasteItemModel, WasteItemCollection
 
 
 app = FastAPI(
@@ -18,6 +20,7 @@ MONGO_URL = "mongodb+srv://vipham0938606944:mongodb1472004!@microservice-databas
 client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_URL)
 db = client["sorting-waste-app"]
 user_collection = db.get_collection("Users")
+waste_item_collection = db.get_collection("WasteItems")
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -59,6 +62,9 @@ async def create_user(user: UserModel = Body(...)):
     user_dict = await user_collection.find_one({"email": inserted_email})
     if user_dict:
         raise HTTPException(status_code=403, detail="Email already registered")
+
+    inserted_user["challenge"] = inserted_user["challenge"].lower()
+
     inserted_user["password"] = get_password_hash(inserted_user["password"])
     new_user = await user_collection.insert_one(
         inserted_user
@@ -68,7 +74,6 @@ async def create_user(user: UserModel = Body(...)):
     )
     return created_user
 
-
 @app.get(
     "/users/",
     response_description="List all users",
@@ -76,8 +81,7 @@ async def create_user(user: UserModel = Body(...)):
     response_model_by_alias=False,
 )
 async def list_users():
-    return UserCollection(users=await user_collection.find().to_list(1000))
-
+    return UserCollection(users = await user_collection.find().to_list(1000))
 
 @app.get(
     "/users/{id}",
@@ -93,6 +97,17 @@ async def show_user(id: str):
 
     raise HTTPException(status_code=404, detail=f"User {id} not found")
 
+@app.get(
+    "/users/{id}/items",
+    response_description="Get all the waste items that this user created",
+    response_model=WasteItemCollection,
+    response_model_by_alias=False,
+)
+async def show_user_items(id: str):
+    user = await user_collection.find_one({"_id": ObjectId(id)})
+    if (len(user) > 0):
+        return WasteItemCollection(waste_items = await waste_item_collection.find({"email" : user["email"]}).to_list(1000))
+    raise HTTPException(status_code=404, detail=f"User {id} not found")
 
 @app.put(
     "/users/{id}",
@@ -105,7 +120,17 @@ async def update_user(id: str, user: UpdateUserModel = Body(...)):
     user = {
         key: value for key, value in user.model_dump(by_alias=True).items() if value is not None
     }
-    user["password"] = get_password_hash(user["password"])
+
+    if("email" in user):
+        user_dict = await user_collection.find_one({"email": user["email"]})
+        if(len(user_dict) > 0):
+            raise HTTPException(status_code=403, detail="Email already registered")
+
+    if("challenge" in user):
+        user["challenge"] = user["challenge"].lower()
+
+    if ("password" in user):
+        user["password"] = get_password_hash(user["password"])
 
     if len(user) >= 1:
         update_result = await user_collection.find_one_and_update(
